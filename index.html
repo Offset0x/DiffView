@@ -1006,6 +1006,11 @@
         ><span class="track"><span class="thumb"></span></span
         ><span>Realtime</span>
       </div>
+      <div class="switch" id="scrollLockToggle" title="Scroll both text panes together">
+        <span class="live"></span
+        ><span class="track"><span class="thumb"></span></span
+        ><span>Scroll lock</span>
+      </div>
       <button class="btn primary" id="compareBtn">Compare</button>
       <button class="btn ghost" id="swapBtn" title="Swap sides">Swap</button>
       <button class="btn ghost" id="sampleBtn">Sample</button>
@@ -1139,6 +1144,7 @@
           intra: true,
           intraLevel: "char",
           lineNumbers: true,
+          scrollLock: false,
           wrap: false,
           theme: "dark",
         });
@@ -1558,11 +1564,42 @@
           }
           syncScroll();
         }
-        function syncScroll() {
+        var scrollSyncing = false;
+        function syncOverlayScroll() {
           LEFTHL.scrollTop = LEFT.scrollTop;
           LEFTHL.scrollLeft = LEFT.scrollLeft;
           RIGHTHL.scrollTop = RIGHT.scrollTop;
           RIGHTHL.scrollLeft = RIGHT.scrollLeft;
+        }
+        function syncPaneScroll(source) {
+          if (
+            (source !== LEFT && source !== RIGHT) ||
+            !OPTS.scrollLock ||
+            OPTS.view !== "split"
+          ) {
+            return;
+          }
+          var target = source === LEFT ? RIGHT : LEFT;
+          var srcTopMax = source.scrollHeight - source.clientHeight;
+          var srcLeftMax = source.scrollWidth - source.clientWidth;
+          var topRatio = srcTopMax > 0 ? source.scrollTop / srcTopMax : 0;
+          var leftRatio = srcLeftMax > 0 ? source.scrollLeft / srcLeftMax : 0;
+          target.scrollTop =
+            topRatio * (target.scrollHeight - target.clientHeight);
+          target.scrollLeft =
+            leftRatio * (target.scrollWidth - target.clientWidth);
+        }
+        function syncScroll(source) {
+          if (scrollSyncing) {
+            syncOverlayScroll();
+            return;
+          }
+          scrollSyncing = true;
+          syncPaneScroll(source);
+          syncOverlayScroll();
+          requestAnimationFrame(function () {
+            scrollSyncing = false;
+          });
         }
 
         /* ---------- realtime ---------- */
@@ -1860,6 +1897,7 @@
                 ">Inline</option></select>"
             ) +
             opt("lineNumbers", "Show line numbers", chk(OPTS.lineNumbers)) +
+            opt("scrollLock", "Scroll panes together", chk(OPTS.scrollLock)) +
             opt("wrap", "Wrap long lines", chk(OPTS.wrap)) +
             optRow(
               "Theme",
@@ -1903,6 +1941,10 @@
               c.classList.toggle("on", OPTS[key]);
               persistOpts();
               if (key === "intra") runCompare();
+              if (key === "scrollLock") {
+                syncScrollLockToggle();
+                syncScroll(document.activeElement);
+              }
             });
           });
           var ws = $("#oWs");
@@ -1945,6 +1987,10 @@
               b.getAttribute("data-view") === OPTS.view
             );
           });
+        }
+        function syncScrollLockToggle() {
+          var toggle = $("#scrollLockToggle");
+          if (toggle) toggle.classList.toggle("on", OPTS.scrollLock);
         }
 
         /* ---------- drawers ---------- */
@@ -2006,8 +2052,12 @@
         RIGHT.addEventListener("input", scheduleRt);
         LEFT.addEventListener("keydown", taKeys);
         RIGHT.addEventListener("keydown", taKeys);
-        LEFT.addEventListener("scroll", syncScroll);
-        RIGHT.addEventListener("scroll", syncScroll);
+        LEFT.addEventListener("scroll", function () {
+          syncScroll(LEFT);
+        });
+        RIGHT.addEventListener("scroll", function () {
+          syncScroll(RIGHT);
+        });
         function taKeys(e) {
           if (e.key === "Tab") {
             e.preventDefault();
@@ -2059,6 +2109,14 @@
           if (OPTS.realtime) runCompare();
         });
         rtToggle.classList.toggle("on", OPTS.realtime);
+        var scrollLockToggle = $("#scrollLockToggle");
+        scrollLockToggle.addEventListener("click", function () {
+          OPTS.scrollLock = !OPTS.scrollLock;
+          scrollLockToggle.classList.toggle("on", OPTS.scrollLock);
+          persistOpts();
+          syncScroll(document.activeElement);
+        });
+        syncScrollLockToggle();
         $("#historyBtn").addEventListener("click", function () {
           openDrawer("historyDrawer");
         });
