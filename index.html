@@ -1,0 +1,2116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+   
+  
+    <title>Diff View</title>
+    <style>
+      :root {
+        --bg: #0c0d11;
+        --bg2: #040404;
+        --glow1: rgba(109, 93, 252, 0.25);
+        --glow2: rgba(0, 212, 255, 0.18);
+        --panel: rgba(255, 255, 255, 0.045);
+        --panel2: rgba(255, 255, 255, 0.07);
+        --border: rgba(255, 255, 255, 0.09);
+        --border2: rgba(255, 255, 255, 0.16);
+        --text: #e8edff;
+        --muted: #8b97c4;
+        --faint: #5b6692;
+        --accent: #6d5dfc;
+        --accent2: #00d4ff;
+        --grad: linear-gradient(135deg, #6d5dfc, #00d4ff);
+        --add: #2ee6a6;
+        --add-bg: rgba(46, 230, 166, 0.13);
+        --add-bg2: rgba(46, 230, 166, 0.22);
+        --del: #ff5c7c;
+        --del-bg: rgba(255, 92, 124, 0.13);
+        --del-bg2: rgba(255, 92, 124, 0.22);
+        --mod: #ffc25c;
+        --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+        --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular,
+          Menlo, Consolas, "Liberation Mono", monospace;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, Helvetica,
+          Arial, sans-serif;
+
+        --border: rgba(255, 255, 255, 0.08);
+        --border2: rgba(255, 255, 255, 0.14);
+        --text: #d4d4d4;
+        --muted: #858585;
+        --faint: #6b6b6b;
+        --accent: #007acc;
+        --accent2: #007acc;
+        --grad: linear-gradient(135deg, #007acc, #007acc);
+      }
+      body.light {
+        --bg: #eef2fb;
+        --bg2: #e4ebf7;
+        --glow1: rgba(109, 93, 252, 0.18);
+        --glow2: rgba(0, 212, 255, 0.14);
+        --panel: rgba(255, 255, 255, 0.75);
+        --panel2: rgba(255, 255, 255, 0.9);
+        --border: rgba(20, 30, 70, 0.12);
+        --border2: rgba(20, 30, 70, 0.22);
+        --text: #0e1530;
+        --muted: #516097;
+        --faint: #8a93b8;
+        --add: #0a9d6a;
+        --add-bg: rgba(10, 157, 106, 0.14);
+        --add-bg2: rgba(10, 157, 106, 0.26);
+        --del: #e23a5c;
+        --del-bg: rgba(226, 58, 92, 0.12);
+        --del-bg2: rgba(226, 58, 92, 0.24);
+        --shadow: 0 10px 34px rgba(40, 60, 120, 0.18);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family: var(--sans);
+        color: var(--text);
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background: radial-gradient(
+            60vw 50vh at 12% -8%,
+            var(--glow1),
+            transparent 60%
+          ),
+          radial-gradient(55vw 45vh at 100% 0%, var(--glow2), transparent 55%),
+          radial-gradient(40vw 40vh at 50% 120%, var(--glow1), transparent 60%);
+        animation: drift 22s ease-in-out infinite alternate;
+      }
+      @keyframes drift {
+        0% {
+          transform: translate3d(0, 0, 0);
+        }
+        100% {
+          transform: translate3d(0, -2%, 0);
+        }
+      }
+
+      /* Top bar */
+      .topbar {
+        position: relative;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg2);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+        font-size: 13px;
+      }
+      .brand .logo {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: var(--accent);
+        display: grid;
+        place-items: center;
+        box-shadow: none;
+      }
+      .brand .logo svg {
+        width: 14px;
+        height: 14px;
+        fill: #fff;
+      }
+      .brand b {
+        color: var(--text);
+      }
+      .tabs {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        padding-bottom: 0;
+      }
+      .tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 200px;
+        padding: 7px 12px;
+        border-radius: 9px 9px 0 0;
+        border: 1px solid transparent;
+        border-bottom: none;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        white-space: nowrap;
+        transition: 0.15s;
+      }
+      .tab:hover {
+        background: var(--panel);
+        color: var(--text);
+      }
+      .tab.active {
+        background: var(--panel2);
+        color: var(--text);
+        border-color: var(--border2);
+        box-shadow: 0 -2px 0 var(--grad) inset;
+      }
+      .tab .tab-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+      }
+      .tab .tab-close {
+        opacity: 0.55;
+        border-radius: 6px;
+        width: 16px;
+        height: 16px;
+        display: grid;
+        place-items: center;
+        font-size: 14px;
+        line-height: 1;
+      }
+      .tab .tab-close:hover {
+        opacity: 1;
+        background: var(--del-bg);
+        color: var(--del);
+      }
+      .tab.add {
+        padding: 7px 11px;
+        font-size: 16px;
+      }
+      .top-actions {
+        display: flex;
+        gap: 8px;
+        white-space: nowrap;
+      }
+      .iconbtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--border2);
+        background: var(--panel);
+        color: var(--text);
+        padding: 7px 12px;
+        border-radius: 9px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: 0.15s;
+      }
+      .iconbtn:hover {
+        background: var(--panel2);
+        border-color: var(--border2);
+      }
+      .iconbtn svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+
+      /* Control strip */
+      .control {
+        position: relative;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        background: var(--bg2);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--border2);
+        background: var(--panel);
+        color: var(--text);
+        padding: 5px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 400;
+        transition: 0.1s;
+      }
+      .btn:hover {
+        background: var(--panel2);
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .btn.primary:hover {
+        background: #1a8cd3;
+        border-color: #1a8cd3;
+      }
+      .btn.ghost {
+        background: transparent;
+        border-color: var(--border);
+      }
+      .spacer {
+        flex: 1;
+      }
+      .switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 12px;
+        font-weight: 400;
+        padding: 5px 10px;
+        border: 1px solid var(--border2);
+        border-radius: 4px;
+        background: var(--panel);
+        transition: 0.1s;
+      }
+      .switch .track {
+        width: 30px;
+        height: 17px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.15);
+        position: relative;
+        transition: 0.2s;
+      }
+      .switch .thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: #fff;
+        transition: 0.2s;
+      }
+      .switch.on .track {
+        background: var(--accent);
+      }
+      .switch.on .thumb {
+        left: 15px;
+      }
+      .switch .live {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--add);
+        opacity: 0;
+        transition: 0.2s;
+      }
+      .switch.on .live {
+        opacity: 1;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(78, 201, 176, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 0 5px rgba(78, 201, 176, 0);
+        }
+      }
+      .stats {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 400;
+        padding: 3px 8px;
+        border-radius: 3px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+      }
+      .badge .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+      .badge.add {
+        color: var(--add);
+      }
+      .badge.add .dot {
+        background: var(--add);
+      }
+      .badge.del {
+        color: var(--del);
+      }
+      .badge.del .dot {
+        background: var(--del);
+      }
+      .badge.eq {
+        color: var(--muted);
+      }
+      .badge.eq .dot {
+        background: var(--faint);
+      }
+      .badge.time {
+        font-family: var(--mono);
+      }
+      .badge.time.fast {
+        color: var(--add);
+      }
+      .badge.time.mid {
+        color: var(--mod);
+      }
+      .badge.time.slow {
+        color: var(--del);
+      }
+
+      /* Panels (always-editable inputs with diff highlight overlay) */
+      .panels {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        gap: 12px;
+        padding: 12px 14px;
+        flex: 1;
+        min-height: 0;
+      }
+      .panels.inline-view .panel.right {
+        display: none;
+      }
+      .panels.inline-view .panel.left {
+        flex: 1;
+      }
+      .panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panel);
+        backdrop-filter: blur(6px);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 12.5px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .panel-head .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .panel-head .tag i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        font-style: normal;
+      }
+      .panel.left .tag i {
+        background: var(--del);
+      }
+      .panel.right .tag i {
+        background: var(--add);
+      }
+      .panel-head .count {
+        color: var(--faint);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .panel-head .mini {
+        margin-left: auto;
+        border: none;
+        background: transparent;
+        color: var(--faint);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 7px;
+      }
+      .panel-head .mini:hover {
+        background: var(--panel2);
+        color: var(--text);
+      }
+      .panel-body {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      /* Highlight layer (behind textarea) */
+      .hl-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        overflow: auto;
+        padding: 12px 14px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.55;
+        letter-spacing: 0;
+        font-variant-ligatures: none;
+        font-kerning: none;
+        tab-size: 4;
+        white-space: pre;
+        pointer-events: none;
+        color: var(--text);
+      }
+      .hl-line {
+        display: block;
+        white-space: pre;
+        width: max-content;
+        min-width: 100%;
+      }
+      body.wrap .hl-layer {
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      body.wrap .hl-line {
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        width: 100%;
+      }
+      .panel.left .hl-line.del,
+      .panel.left .hl-line.mod {
+        background: var(--del-bg);
+      }
+      .panel.right .hl-line.ins,
+      .panel.right .hl-line.mod {
+        background: var(--add-bg);
+      }
+      .hl-del {
+        background: var(--del-bg2);
+        border-radius: 3px;
+        color: #ffe1e8;
+      }
+      .hl-ins {
+        background: var(--add-bg2);
+        border-radius: 3px;
+        color: #dafff0;
+      }
+      body.light .hl-del {
+        color: #7a0f24;
+      }
+      body.light .hl-ins {
+        color: #075334;
+      }
+
+      /* Textarea (on top, transparent text, visible caret) */
+      textarea {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        width: 100%;
+        height: 100%;
+        border: none;
+        outline: none;
+        resize: none;
+        background: transparent;
+        color: transparent;
+        caret-color: var(--text);
+        padding: 12px 14px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.55;
+        letter-spacing: 0;
+        font-variant-ligatures: none;
+        font-kerning: none;
+        tab-size: 4;
+        white-space: pre;
+        overflow: auto;
+      }
+      body.wrap textarea {
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      textarea::selection {
+        background: rgba(109, 93, 252, 0.35);
+        color: transparent;
+      }
+      textarea::placeholder {
+        color: var(--faint);
+      }
+      .panels.inline-view .panel.left .hl-layer,
+      .panels.inline-view .panel.left textarea {
+        display: none;
+      }
+
+      /* Inline diff view (read-only, shown only in inline mode) */
+      .diff-view {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: none;
+        overflow: auto;
+        padding: 12px 0;
+      }
+      .panels.inline-view .panel.left .diff-view {
+        display: block;
+      }
+      .inline-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .inline-table td {
+        vertical-align: top;
+        padding: 0;
+        white-space: pre;
+      }
+      .inline-table .ln {
+        width: 46px;
+        text-align: right;
+        color: var(--faint);
+        user-select: none;
+        padding: 0 10px 0 8px;
+        border-right: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.018);
+      }
+      .inline-table .sign {
+        width: 22px;
+        text-align: center;
+        user-select: none;
+        color: var(--faint);
+      }
+      .inline-table .code {
+        padding: 0 12px;
+      }
+      body.wrap .inline-table .code {
+        white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      .inline-table tr.del {
+        background: var(--del-bg);
+      }
+      .inline-table tr.del .sign {
+        color: var(--del);
+      }
+      .inline-table tr.ins {
+        background: var(--add-bg);
+      }
+      .inline-table tr.ins .sign {
+        color: var(--add);
+      }
+      .inline-table tr:hover .code {
+        filter: brightness(1.06);
+      }
+
+      /* Drawers */
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--border2);
+        border-radius: 4px;
+        overflow: hidden;
+        background: var(--panel);
+      }
+      .seg button {
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        padding: 5px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 400;
+        transition: 0.1s;
+      }
+      .seg button:hover {
+        background: var(--panel2);
+      }
+      .seg button.active {
+        background: var(--accent);
+        color: #fff;
+      }
+      .empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        color: var(--faint);
+        text-align: center;
+        padding: 20px;
+      }
+      .empty svg {
+        width: 54px;
+        height: 54px;
+        fill: var(--faint);
+        opacity: 0.6;
+      }
+      .empty h3 {
+        margin: 0;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .empty p {
+        margin: 0;
+        max-width: 380px;
+        line-height: 1.5;
+      }
+      .scrim {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 20, 0.5);
+        backdrop-filter: blur(3px);
+        opacity: 0;
+        pointer-events: none;
+        transition: 0.25s;
+        z-index: 20;
+      }
+      .scrim.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 380px;
+        max-width: 92vw;
+        background: var(--bg2);
+        border-left: 1px solid var(--border2);
+        box-shadow: -16px 0 50px rgba(0, 0, 0, 0.5);
+        transform: translateX(105%);
+        transition: transform 0.28s cubic-bezier(0.4, 0.1, 0.2, 1);
+        z-index: 21;
+        display: flex;
+        flex-direction: column;
+      }
+      .drawer.show {
+        transform: translateX(0);
+      }
+      .drawer-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .drawer-head h2 {
+        margin: 0;
+        font-size: 16px;
+        flex: 1;
+      }
+      .drawer-body {
+        flex: 1;
+        overflow: auto;
+        padding: 14px 18px;
+      }
+      .drawer-close {
+        border: 1px solid var(--border2);
+        background: var(--panel);
+        color: var(--text);
+        border-radius: 9px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .drawer-close:hover {
+        background: var(--panel2);
+      }
+
+      .opt-group {
+        margin-bottom: 18px;
+      }
+      .opt-group h3 {
+        margin: 0 0 10px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--muted);
+      }
+      .opt {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .opt label {
+        font-size: 13.5px;
+      }
+      .opt select {
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .chk {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.14);
+        cursor: pointer;
+        transition: 0.2s;
+        flex-shrink: 0;
+      }
+      .chk::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        transition: 0.2s cubic-bezier(0.4, 1.4, 0.6, 1);
+      }
+      .chk.on {
+        background: var(--grad);
+      }
+      .chk.on::after {
+        left: 20px;
+      }
+      .hint {
+        font-size: 11.5px;
+        color: var(--faint);
+        line-height: 1.6;
+        margin-top: 6px;
+      }
+      .kbd {
+        font-family: var(--mono);
+        font-size: 11px;
+        background: var(--panel2);
+        border: 1px solid var(--border2);
+        border-radius: 5px;
+        padding: 1px 6px;
+      }
+
+      /* History */
+      .hist-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 13px;
+        margin-bottom: 10px;
+        background: var(--panel);
+        transition: 0.15s;
+        cursor: pointer;
+      }
+      .hist-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+      }
+      .hist-card .h-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .hist-card .h-name {
+        font-weight: 600;
+        font-size: 13px;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hist-card .h-time {
+        font-size: 11px;
+        color: var(--faint);
+        font-family: var(--mono);
+      }
+      .hist-card .h-stats {
+        display: flex;
+        gap: 8px;
+        font-size: 11.5px;
+        font-family: var(--mono);
+      }
+      .hist-card .h-stats .a {
+        color: var(--add);
+      }
+      .hist-card .h-stats .d {
+        color: var(--del);
+      }
+      .hist-card .h-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .hist-card .h-actions button {
+        border: 1px solid var(--border2);
+        background: var(--panel2);
+        color: var(--text);
+        border-radius: 7px;
+        padding: 4px 10px;
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .hist-card .h-actions button:hover {
+        border-color: var(--accent);
+      }
+      .hist-card .h-actions .del-btn:hover {
+        border-color: var(--del);
+        color: var(--del);
+      }
+      .hist-empty {
+        color: var(--faint);
+        text-align: center;
+        padding: 30px 10px;
+        font-size: 13px;
+      }
+      .hist-clear {
+        width: 100%;
+        margin-top: 8px;
+        border: 1px dashed var(--border2);
+        background: transparent;
+        color: var(--del);
+        border-radius: 9px;
+        padding: 9px;
+        cursor: pointer;
+        font-size: 12.5px;
+      }
+      .hist-clear:hover {
+        background: var(--del-bg);
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: var(--bg2);
+        border: 1px solid var(--border2);
+        color: var(--text);
+        padding: 10px 18px;
+        border-radius: 30px;
+        font-size: 13px;
+        box-shadow: var(--shadow);
+        opacity: 0;
+        transition: 0.25s;
+        z-index: 30;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      @media (max-width: 760px) {
+        .panels {
+          flex-direction: column;
+          height: auto;
+          flex: 1;
+        }
+        .panel {
+          min-height: 160px;
+        }
+        .brand span {
+          display: none;
+        }
+      }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border2);
+        border-radius: 8px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent);
+        background-clip: content-box;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo"
+          ><svg viewBox="0 0 24 24">
+            <path d="M13 2L3 14h6l-1 8 11-13h-7l1-7z" /></svg
+        ></span>
+        <span><b>Diff</b> View</span>
+      </div>
+      <nav class="tabs" id="tabbar"></nav>
+      <div class="top-actions">
+        <button class="iconbtn" id="historyBtn" title="History">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M13 3a9 9 0 1 0 8.9 10 1 1 0 0 0-2-.2A7 7 0 1 1 13 5v3l5-4-5-4v3z"
+            />
+            <path
+              d="M13 7v5l4 2"
+              stroke="currentColor"
+              stroke-width="1.6"
+              fill="none"
+            /></svg
+          >History
+        </button>
+        <button class="iconbtn" id="optionsBtn" title="Options">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 4a7.5 7.5 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1l-.3-2.6H11l-.3 2.6a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1l.3 2.6h4l.3-2.6a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7.5 7.5 0 0 0 .1-1z"
+            /></svg
+          >Options
+        </button>
+      </div>
+    </header>
+
+    <div class="control">
+      <div class="switch" id="rtToggle">
+        <span class="live"></span
+        ><span class="track"><span class="thumb"></span></span
+        ><span>Realtime</span>
+      </div>
+      <button class="btn primary" id="compareBtn">Compare</button>
+      <button class="btn ghost" id="swapBtn" title="Swap sides">Swap</button>
+      <button class="btn ghost" id="sampleBtn">Sample</button>
+      <button class="btn ghost" id="clearBtn">Clear</button>
+      <div class="seg" id="viewSeg">
+        <button data-view="split" class="active">Side by side</button>
+        <button data-view="inline">Inline</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <main class="panels" id="panels">
+      <section class="panel left" id="panelLeft">
+        <div class="panel-head">
+          <span class="tag"><i></i>Original</span
+          ><span class="count" id="leftCount">0 lines</span
+          ><button class="mini" data-clear="left">clear</button>
+        </div>
+        <div class="panel-body">
+          <div class="hl-layer" id="leftHl"></div>
+          <textarea
+            id="leftInput"
+            spellcheck="false"
+            placeholder="Paste original text here..."
+          ></textarea>
+          <div class="diff-view" id="leftDiff"></div>
+        </div>
+      </section>
+      <section class="panel right" id="panelRight">
+        <div class="panel-head">
+          <span class="tag"><i></i>Changed</span
+          ><span class="count" id="rightCount">0 lines</span
+          ><button class="mini" data-clear="right">clear</button>
+        </div>
+        <div class="panel-body">
+          <div class="hl-layer" id="rightHl"></div>
+          <textarea
+            id="rightInput"
+            spellcheck="false"
+            placeholder="Paste changed text here..."
+          ></textarea>
+          <div class="diff-view" id="rightDiff"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="scrim" id="scrim"></div>
+
+    <aside class="drawer" id="optionsDrawer">
+      <div class="drawer-head">
+        <h2>Options</h2>
+        <button class="drawer-close" data-close>×</button>
+      </div>
+      <div class="drawer-body" id="optionsBody"></div>
+    </aside>
+
+    <aside class="drawer" id="historyDrawer">
+      <div class="drawer-head">
+        <h2>History</h2>
+        <button class="drawer-close" data-close>×</button>
+      </div>
+      <div class="drawer-body" id="historyBody"></div>
+    </aside>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      "use strict";
+      (function () {
+        var $ = function (s) {
+          return document.querySelector(s);
+        };
+        var $$ = function (s) {
+          return Array.prototype.slice.call(document.querySelectorAll(s));
+        };
+        var LEFT = $("#leftInput"),
+          RIGHT = $("#rightInput");
+        var LEFTHL = $("#leftHl"),
+          RIGHTHL = $("#rightHl");
+        var LEFTDIFF = $("#leftDiff");
+        var PANELS = $("#panels");
+        var STATS = $("#stats"),
+          TABBAR = $("#tabbar");
+        var COMPAREBTN = $("#compareBtn");
+
+        /* ---------- storage ---------- */
+        function lsGet(k, fb) {
+          try {
+            var v = localStorage.getItem("dc_" + k);
+            return v ? JSON.parse(v) : fb;
+          } catch (e) {
+            return fb;
+          }
+        }
+        function lsSetRaw(k, v) {
+          try {
+            localStorage.setItem("dc_" + k, JSON.stringify(v));
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+        function lsSet(k, v) {
+          if (!lsSetRaw(k, v)) {
+            try {
+              localStorage.removeItem("dc_history");
+            } catch (e) {}
+            return lsSetRaw(k, v);
+          }
+          return true;
+        }
+        function uid() {
+          return (
+            Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+          );
+        }
+        function esc(s) {
+          return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        }
+
+        /* ---------- options ---------- */
+        var OPTS = lsGet("opts", {
+          realtime: true,
+          view: "split",
+          ignoreCase: false,
+          ws: "none",
+          intra: true,
+          intraLevel: "word",
+          lineNumbers: true,
+          wrap: false,
+          theme: "dark",
+        });
+        function persistOpts() {
+          lsSet("opts", OPTS);
+        }
+        function applyTheme() {
+          document.body.classList.toggle("light", OPTS.theme === "light");
+        }
+        applyTheme();
+
+        /* ---------- diff core (Myers + common prefix/suffix trim) ---------- */
+        function myers(a, b, eq) {
+          var n = a.length,
+            m = b.length;
+          if (n === 0) {
+            var o = [];
+            for (var i = 0; i < m; i++) o.push({ type: "insert", bIdx: i });
+            return o;
+          }
+          if (m === 0) {
+            var p = [];
+            for (var j = 0; j < n; j++) p.push({ type: "delete", aIdx: j });
+            return p;
+          }
+          var max = n + m,
+            offset = max;
+          var v = new Int32Array(2 * max + 1).fill(-1);
+          v[offset + 1] = 0;
+          var trace = [];
+          var deadline = performance.now() + 2500;
+          for (var d = 0; d <= max; d++) {
+            trace.push(v.slice());
+            if ((d & 255) === 0 && performance.now() > deadline)
+              throw new Error("timeout");
+            for (var k = -d; k <= d; k += 2) {
+              var x;
+              if (
+                k === -d ||
+                (k !== d && v[offset + k - 1] < v[offset + k + 1])
+              )
+                x = v[offset + k + 1];
+              else x = v[offset + k - 1] + 1;
+              var y = x - k;
+              while (x < n && y < m && eq(a[x], b[y])) {
+                x++;
+                y++;
+              }
+              v[offset + k] = x;
+              if (x >= n && y >= m) return backtrack(trace, offset, n, m, d);
+            }
+          }
+          return backtrack(trace, offset, n, m, max);
+        }
+        function backtrack(trace, offset, n, m, D) {
+          var x = n,
+            y = m,
+            ops = [];
+          for (var d = D; d > 0; d--) {
+            var v = trace[d],
+              k = x - y,
+              prevK;
+            if (k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1]))
+              prevK = k + 1;
+            else prevK = k - 1;
+            var prevX = v[offset + prevK],
+              prevY = prevX - prevK;
+            while (x > prevX && y > prevY) {
+              ops.push({ type: "equal", aIdx: x - 1, bIdx: y - 1 });
+              x--;
+              y--;
+            }
+            if (x === prevX) {
+              ops.push({ type: "insert", bIdx: y - 1 });
+              y--;
+            } else {
+              ops.push({ type: "delete", aIdx: x - 1 });
+              x--;
+            }
+            x = prevX;
+            y = prevY;
+          }
+          while (x > 0 && y > 0) {
+            ops.push({ type: "equal", aIdx: x - 1, bIdx: y - 1 });
+            x--;
+            y--;
+          }
+          ops.reverse();
+          return ops;
+        }
+        function diffSeq(a, b, eq) {
+          eq =
+            eq ||
+            function (x, y) {
+              return x === y;
+            };
+          var n = a.length,
+            m = b.length,
+            min = Math.min(n, m),
+            p = 0,
+            s = 0;
+          while (p < min && eq(a[p], b[p])) p++;
+          while (s < min - p && eq(a[n - 1 - s], b[m - 1 - s])) s++;
+          var ops = [];
+          for (var i = 0; i < p; i++)
+            ops.push({ type: "equal", aIdx: i, bIdx: i });
+          var sa = a.slice(p, n - s),
+            sb = b.slice(p, m - s);
+          if (sa.length || sb.length) {
+            var mid = myers(sa, sb, eq);
+            for (var j = 0; j < mid.length; j++) {
+              var op = mid[j],
+                o = { type: op.type };
+              if (op.aIdx != null) {
+                o.aIdx = op.aIdx + p;
+              }
+              if (op.bIdx != null) {
+                o.bIdx = op.bIdx + p;
+              }
+              ops.push(o);
+            }
+          }
+          for (var t = 0; t < s; t++)
+            ops.push({ type: "equal", aIdx: n - 1 - t, bIdx: m - 1 - t });
+          return ops;
+        }
+
+        /* ---------- normalization & tokenization ---------- */
+        function normalize(l) {
+          var s = l;
+          if (OPTS.ignoreCase) s = s.toLowerCase();
+          if (OPTS.ws === "trim") s = s.trim();
+          else if (OPTS.ws === "all") s = s.replace(/\s+/g, "");
+          return s;
+        }
+        function tokenizeWords(s) {
+          var t = [],
+            re = /(\s+|[A-Za-z0-9_]+|[^\sA-Za-z0-9_]+)/g,
+            m;
+          while ((m = re.exec(s))) {
+            t.push(m[0]);
+          }
+          return t;
+        }
+        function tokenizeChars(s) {
+          return s.split("");
+        }
+        function intraDiff(aText, bText) {
+          var ta =
+            OPTS.intraLevel === "char"
+              ? tokenizeChars(aText)
+              : tokenizeWords(aText);
+          var tb =
+            OPTS.intraLevel === "char"
+              ? tokenizeChars(bText)
+              : tokenizeWords(bText);
+          var ops = diffSeq(ta, tb);
+          var lh = "",
+            rh = "";
+          for (var i = 0; i < ops.length; i++) {
+            var op = ops[i],
+              val = op.aIdx != null ? ta[op.aIdx] : tb[op.bIdx];
+            if (op.type === "equal") {
+              lh += esc(val);
+              rh += esc(val);
+            } else if (op.type === "delete") {
+              lh += '<span class="hl-del">' + esc(val) + "</span>";
+            } else {
+              rh += '<span class="hl-ins">' + esc(val) + "</span>";
+            }
+          }
+          return { lh: lh, rh: rh };
+        }
+
+        /* ---------- rendering ---------- */
+        function computeStats(ops) {
+          var add = 0,
+            del = 0,
+            eq = 0;
+          for (var i = 0; i < ops.length; i++) {
+            var t = ops[i].type;
+            if (t === "insert") add++;
+            else if (t === "delete") del++;
+            else eq++;
+          }
+          return { add: add, del: del, eq: eq };
+        }
+
+        function renderHighlight(ops, a, b) {
+          var aLen = a.length,
+            bLen = b.length;
+          var lStatus = new Array(aLen).fill("eq"),
+            rStatus = new Array(bLen).fill("eq");
+          var lHtml = new Array(aLen).fill(null),
+            rHtml = new Array(bLen).fill(null);
+          var i = 0;
+          while (i < ops.length) {
+            var op = ops[i];
+            if (op.type === "equal") {
+              i++;
+              continue;
+            }
+            var dels = [],
+              inss = [];
+            while (i < ops.length && ops[i].type !== "equal") {
+              if (ops[i].type === "delete") dels.push(ops[i]);
+              else inss.push(ops[i]);
+              i++;
+            }
+            var maxL = Math.max(dels.length, inss.length);
+            for (var j = 0; j < maxL; j++) {
+              var d = dels[j],
+                ins = inss[j];
+              if (d && ins) {
+                lStatus[d.aIdx] = "mod";
+                rStatus[ins.bIdx] = "mod";
+                if (OPTS.intra && a[d.aIdx] !== b[ins.bIdx]) {
+                  var r = intraDiff(a[d.aIdx], b[ins.bIdx]);
+                  lHtml[d.aIdx] = r.lh;
+                  rHtml[ins.bIdx] = r.rh;
+                }
+              } else if (d) {
+                lStatus[d.aIdx] = "del";
+              } else if (ins) {
+                rStatus[ins.bIdx] = "ins";
+              }
+            }
+          }
+          var lh = "",
+            rh = "";
+          for (var x = 0; x < aLen; x++) {
+            lh +=
+              '<div class="hl-line ' +
+              lStatus[x] +
+              '">' +
+              (lHtml[x] || esc(a[x]) || " ") +
+              "</div>";
+          }
+          for (var y = 0; y < bLen; y++) {
+            rh +=
+              '<div class="hl-line ' +
+              rStatus[y] +
+              '">' +
+              (rHtml[y] || esc(b[y]) || " ") +
+              "</div>";
+          }
+          LEFTHL.innerHTML = lh;
+          RIGHTHL.innerHTML = rh;
+        }
+
+        function renderInline(ops, a, b) {
+          var showLn = OPTS.lineNumbers;
+          var html = '<table class="inline-table"><tbody>';
+          var i = 0;
+          while (i < ops.length) {
+            var op = ops[i];
+            if (op.type === "equal") {
+              html += row(
+                "eq",
+                " ",
+                esc(a[op.aIdx]),
+                showLn ? op.aIdx + 1 : ""
+              );
+              i++;
+            } else {
+              var dels = [],
+                inss = [];
+              while (i < ops.length && ops[i].type !== "equal") {
+                if (ops[i].type === "delete") dels.push(ops[i]);
+                else inss.push(ops[i]);
+                i++;
+              }
+              var maxL = Math.max(dels.length, inss.length);
+              for (var j = 0; j < maxL; j++) {
+                var d = dels[j],
+                  ins = inss[j];
+                if (d && ins && OPTS.intra && a[d.aIdx] !== b[ins.bIdx]) {
+                  var r = intraDiff(a[d.aIdx], b[ins.bIdx]);
+                  html += row("del", "-", r.lh, showLn ? d.aIdx + 1 : "");
+                  html += row("ins", "+", r.rh, showLn ? ins.bIdx + 1 : "");
+                } else if (d) {
+                  html += row(
+                    "del",
+                    "-",
+                    esc(a[d.aIdx]),
+                    showLn ? d.aIdx + 1 : ""
+                  );
+                } else if (ins) {
+                  html += row(
+                    "ins",
+                    "+",
+                    esc(b[ins.bIdx]),
+                    showLn ? ins.bIdx + 1 : ""
+                  );
+                }
+              }
+            }
+          }
+          html += "</tbody></table>";
+          function row(kind, sign, content, num) {
+            return (
+              '<tr class="' +
+              kind +
+              '"><td class="ln">' +
+              num +
+              '</td><td class="sign">' +
+              sign +
+              '</td><td class="code">' +
+              (content || " ") +
+              "</td></tr>"
+            );
+          }
+          return html;
+        }
+
+        function fmtTime(ms) {
+          if (ms < 1) return ms.toFixed(2) + " ms";
+          if (ms < 1000) return ms.toFixed(1) + " ms";
+          return (ms / 1000).toFixed(2) + " s";
+        }
+        function fmtNum(n) {
+          return n.toLocaleString();
+        }
+
+        function showStats(ms, st) {
+          var tcls = ms < 50 ? "fast" : ms < 500 ? "mid" : "slow";
+          STATS.innerHTML =
+            '<span class="badge time ' +
+            tcls +
+            '">' +
+            fmtTime(ms) +
+            "</span>" +
+            '<span class="badge add"><span class="dot"></span>+' +
+            fmtNum(st.add) +
+            "</span>" +
+            '<span class="badge del"><span class="dot"></span>−' +
+            fmtNum(st.del) +
+            "</span>" +
+            '<span class="badge eq"><span class="dot"></span>' +
+            fmtNum(st.eq) +
+            " same</span>";
+        }
+
+        /* ---------- compare ---------- */
+        var lastResult = null;
+        function compare() {
+          var t0 = performance.now();
+          var l = LEFT.value,
+            r = RIGHT.value;
+          if (!l && !r) {
+            LEFTHL.innerHTML = "";
+            RIGHTHL.innerHTML = "";
+            LEFTDIFF.innerHTML = "";
+            STATS.innerHTML = "";
+            lastResult = null;
+            return;
+          }
+          var a = l.length ? l.split("\n") : [];
+          var b = r.length ? r.split("\n") : [];
+          var cap = 60000;
+          if (a.length > cap || b.length > cap) {
+            LEFTHL.innerHTML = "";
+            RIGHTHL.innerHTML = "";
+            STATS.innerHTML = "";
+            return;
+          }
+          var aKey = a,
+            bKey = b;
+          if (OPTS.ignoreCase || OPTS.ws !== "none") {
+            aKey = new Array(a.length);
+            bKey = new Array(b.length);
+            for (var i = 0; i < a.length; i++) aKey[i] = normalize(a[i]);
+            for (var j = 0; j < b.length; j++) bKey[j] = normalize(b[j]);
+          }
+          var ops,
+            err = null;
+          try {
+            ops = diffSeq(aKey, bKey);
+          } catch (e) {
+            err = e;
+            ops = [];
+          }
+          var t1 = performance.now();
+          var ms = t1 - t0;
+          var st = computeStats(ops);
+          lastResult = { ops: ops, a: a, b: b, st: st, ms: ms };
+          if (err) {
+            LEFTHL.innerHTML = "";
+            RIGHTHL.innerHTML = "";
+            STATS.innerHTML = "";
+          } else if (OPTS.view === "split") {
+            renderHighlight(ops, a, b);
+          } else {
+            LEFTDIFF.innerHTML = renderInline(ops, a, b);
+          }
+          document.body.classList.toggle("wrap", OPTS.wrap);
+          showStats(ms, st);
+          syncScroll();
+        }
+        function runCompare() {
+          compare();
+        }
+        function rerender() {
+          if (!lastResult) return;
+          var ops = lastResult.ops,
+            a = lastResult.a,
+            b = lastResult.b;
+          if (OPTS.view === "split") {
+            renderHighlight(ops, a, b);
+          } else {
+            LEFTDIFF.innerHTML = renderInline(ops, a, b);
+          }
+          syncScroll();
+        }
+        function syncScroll() {
+          LEFTHL.scrollTop = LEFT.scrollTop;
+          LEFTHL.scrollLeft = LEFT.scrollLeft;
+          RIGHTHL.scrollTop = RIGHT.scrollTop;
+          RIGHTHL.scrollLeft = RIGHT.scrollLeft;
+        }
+
+        /* ---------- realtime ---------- */
+        var rtTimer = null;
+        function scheduleRt() {
+          updateCounts();
+          if (!OPTS.realtime) return;
+          clearTimeout(rtTimer);
+          rtTimer = setTimeout(runCompare, 110);
+        }
+        function updateCounts() {
+          var l = LEFT.value,
+            r = RIGHT.value;
+          $("#leftCount").textContent =
+            (l.length ? l.split("\n").length : 0) +
+            " lines · " +
+            l.length +
+            " chars";
+          $("#rightCount").textContent =
+            (r.length ? r.split("\n").length : 0) +
+            " lines · " +
+            r.length +
+            " chars";
+        }
+
+        /* ---------- tabs ---------- */
+        var TABS = lsGet("tabs", null);
+        var ACTIVE = lsGet("active", null);
+        if (!TABS || !TABS.length) {
+          TABS = [{ id: uid(), name: "Tab 1", left: "", right: "" }];
+          ACTIVE = TABS[0].id;
+        }
+        function persistTabs() {
+          lsSet(
+            "tabs",
+            TABS.map(function (t) {
+              return { id: t.id, name: t.name, left: t.left, right: t.right };
+            })
+          );
+          lsSet("active", ACTIVE);
+        }
+        function saveCurrentToTab() {
+          var t = tabById(ACTIVE);
+          if (t) {
+            t.left = LEFT.value;
+            t.right = RIGHT.value;
+          }
+        }
+        function tabById(id) {
+          for (var i = 0; i < TABS.length; i++)
+            if (TABS[i].id === id) return TABS[i];
+          return null;
+        }
+        function loadTab(id) {
+          var t = tabById(id);
+          LEFT.value = t.left;
+          RIGHT.value = t.right;
+          updateCounts();
+        }
+        function renderTabs() {
+          TABBAR.innerHTML = "";
+          TABS.forEach(function (t) {
+            var el = document.createElement("button");
+            el.className = "tab" + (t.id === ACTIVE ? " active" : "");
+            el.innerHTML =
+              '<span class="tab-name">' +
+              esc(t.name) +
+              '</span><span class="tab-close" title="Close">×</span>';
+            el.addEventListener("click", function (e) {
+              if (e.target.classList.contains("tab-close")) {
+                closeTab(t.id);
+              } else {
+                switchTab(t.id);
+              }
+            });
+            el.addEventListener("dblclick", function () {
+              var n = prompt("Rename tab", t.name);
+              if (n != null && n.trim()) {
+                t.name = n.trim().slice(0, 40);
+                persistTabs();
+                renderTabs();
+              }
+            });
+            TABBAR.appendChild(el);
+          });
+          var add = document.createElement("button");
+          add.className = "tab add";
+          add.textContent = "+";
+          add.title = "New tab";
+          add.addEventListener("click", newTab);
+          TABBAR.appendChild(add);
+        }
+        function switchTab(id) {
+          if (id === ACTIVE) return;
+          saveCurrentToTab();
+          ACTIVE = id;
+          loadTab(id);
+          persistTabs();
+          renderTabs();
+          runCompare();
+        }
+        function newTab() {
+          saveCurrentToTab();
+          var t = {
+            id: uid(),
+            name: "Tab " + (TABS.length + 1),
+            left: "",
+            right: "",
+          };
+          TABS.push(t);
+          ACTIVE = t.id;
+          loadTab(t.id);
+          persistTabs();
+          renderTabs();
+          runCompare();
+        }
+        function closeTab(id) {
+          if (TABS.length === 1) {
+            var t = TABS[0];
+            t.left = "";
+            t.right = "";
+            t.name = "Tab 1";
+            ACTIVE = t.id;
+            loadTab(t.id);
+            persistTabs();
+            renderTabs();
+            runCompare();
+            return;
+          }
+          var idx = TABS.findIndex(function (t) {
+            return t.id === id;
+          });
+          TABS.splice(idx, 1);
+          if (ACTIVE === id) {
+            ACTIVE = TABS[Math.min(idx, TABS.length - 1)].id;
+            loadTab(ACTIVE);
+          }
+          persistTabs();
+          renderTabs();
+          runCompare();
+        }
+
+        /* ---------- history ---------- */
+        var HIST = lsGet("history", []);
+        function persistHist() {
+          var ok = false;
+          while (HIST.length) {
+            if (lsSetRaw("history", HIST)) {
+              ok = true;
+              break;
+            }
+            HIST = HIST.slice(0, Math.ceil(HIST.length / 2));
+          }
+          return ok;
+        }
+        function addHistory() {
+          if (!lastResult) return;
+          var snap = function (s) {
+            return s.length > 50000 ? s.slice(0, 50000) + "\n…[truncated]" : s;
+          };
+          var entry = {
+            id: uid(),
+            time: Date.now(),
+            name:
+              "Diff · " +
+              new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              }),
+            left: snap(LEFT.value),
+            right: snap(RIGHT.value),
+            add: lastResult.st.add,
+            del: lastResult.st.del,
+            ms: lastResult.ms,
+          };
+          HIST.unshift(entry);
+          if (HIST.length > 40) HIST.length = 40;
+          persistHist();
+          renderHistory();
+        }
+        function renderHistory() {
+          var body = $("#historyBody");
+          if (!HIST.length) {
+            body.innerHTML =
+              '<div class="hist-empty">No snapshots yet.<br>Press <b>Compare</b> to save one.</div>';
+            return;
+          }
+          var html = "";
+          HIST.forEach(function (h) {
+            var d = new Date(h.time);
+            var when =
+              d.toLocaleDateString([], { month: "short", day: "numeric" }) +
+              " " +
+              d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            html +=
+              '<div class="hist-card" data-id="' +
+              h.id +
+              '">' +
+              '<div class="h-top"><span class="h-name">' +
+              esc(h.name) +
+              '</span><span class="h-time">' +
+              esc(when) +
+              "</span></div>" +
+              '<div class="h-stats"><span class="a">+' +
+              h.add +
+              '</span><span class="d">−' +
+              h.del +
+              "</span><span>" +
+              fmtTime(h.ms) +
+              "</span></div>" +
+              '<div class="h-actions"><button data-act="load">Open in new tab</button><button class="del-btn" data-act="del">Delete</button></div>' +
+              "</div>";
+          });
+          html +=
+            '<button class="hist-clear" id="histClear">Clear all history</button>';
+          body.innerHTML = html;
+        }
+        $("#historyBody").addEventListener("click", function (e) {
+          var card = e.target.closest(".hist-card");
+          if (e.target.id === "histClear") {
+            if (confirm("Clear all history?")) {
+              HIST = [];
+              persistHist();
+              renderHistory();
+            }
+            return;
+          }
+          if (!card) return;
+          var id = card.getAttribute("data-id");
+          var h = null;
+          for (var i = 0; i < HIST.length; i++)
+            if (HIST[i].id === id) {
+              h = HIST[i];
+              break;
+            }
+          if (!h) return;
+          var act = e.target.getAttribute("data-act");
+          if (act === "del") {
+            HIST = HIST.filter(function (x) {
+              return x.id !== id;
+            });
+            persistHist();
+            renderHistory();
+          } else if (act === "load") {
+            saveCurrentToTab();
+            var t = { id: uid(), name: h.name, left: h.left, right: h.right };
+            TABS.push(t);
+            ACTIVE = t.id;
+            loadTab(t.id);
+            persistTabs();
+            renderTabs();
+            runCompare();
+            closeDrawers();
+            toast("Loaded into new tab");
+          }
+        });
+
+        /* ---------- options UI ---------- */
+        function chk(on) {
+          return '<div class="chk' + (on ? " on" : "") + '"></div>';
+        }
+        function renderOptions() {
+          var body = $("#optionsBody");
+          body.innerHTML =
+            '<div class="opt-group"><h3>Comparison</h3>' +
+            opt("ignoreCase", "Ignore case", chk(OPTS.ignoreCase)) +
+            optRow(
+              "Whitespace",
+              '<select id="oWs"><option value="none"' +
+                sel(OPTS.ws, "none") +
+                '>Keep</option><option value="trim"' +
+                sel(OPTS.ws, "trim") +
+                '>Trim per line</option><option value="all"' +
+                sel(OPTS.ws, "all") +
+                ">Ignore all</option></select>"
+            ) +
+            opt("intra", "Highlight changes within lines", chk(OPTS.intra)) +
+            optRow(
+              "Highlight detail",
+              '<select id="oLevel"><option value="word"' +
+                sel(OPTS.intraLevel, "word") +
+                '>Word level</option><option value="char"' +
+                sel(OPTS.intraLevel, "char") +
+                ">Character level</option></select>"
+            ) +
+            "</div>" +
+            '<div class="opt-group"><h3>Display</h3>' +
+            optRow(
+              "View",
+              '<select id="oView"><option value="split"' +
+                sel(OPTS.view, "split") +
+                '>Side by side</option><option value="inline"' +
+                sel(OPTS.view, "inline") +
+                ">Inline</option></select>"
+            ) +
+            opt("lineNumbers", "Show line numbers", chk(OPTS.lineNumbers)) +
+            opt("wrap", "Wrap long lines", chk(OPTS.wrap)) +
+            optRow(
+              "Theme",
+              '<select id="oTheme"><option value="dark"' +
+                sel(OPTS.theme, "dark") +
+                '>Dark</option><option value="light"' +
+                sel(OPTS.theme, "light") +
+                ">Light</option></select>"
+            ) +
+            "</div>" +
+            '<div class="opt-group"><h3>Shortcuts</h3>' +
+            '<div class="hint"><span class="kbd">Ctrl+Enter</span> Compare &amp; save<br><span class="kbd">Alt+S</span> Swap sides<br><span class="kbd">Alt+R</span> Toggle realtime<br><span class="kbd">Alt+H</span> History<br><span class="kbd">Alt+O</span> Options<br>Double-click a tab to rename.</div>' +
+            "</div>";
+          bindOpts(body);
+        }
+        function opt(key, label, ctrl) {
+          return (
+            '<div class="opt" data-opt="' +
+            key +
+            '"><label>' +
+            label +
+            "</label>" +
+            ctrl +
+            "</div>"
+          );
+        }
+        function optRow(label, ctrl) {
+          return (
+            '<div class="opt"><label>' + label + "</label>" + ctrl + "</div>"
+          );
+        }
+        function sel(val, key) {
+          return val === key ? " selected" : "";
+        }
+        function bindOpts(body) {
+          $$(".chk", body).forEach(function (c) {
+            var row = c.closest(".opt");
+            var key = row.getAttribute("data-opt");
+            c.addEventListener("click", function () {
+              OPTS[key] = !OPTS[key];
+              c.classList.toggle("on", OPTS[key]);
+              persistOpts();
+              if (key === "intra") runCompare();
+            });
+          });
+          var ws = $("#oWs");
+          if (ws)
+            ws.addEventListener("change", function () {
+              OPTS.ws = ws.value;
+              persistOpts();
+              runCompare();
+            });
+          var lvl = $("#oLevel");
+          if (lvl)
+            lvl.addEventListener("change", function () {
+              OPTS.intraLevel = lvl.value;
+              persistOpts();
+              runCompare();
+            });
+          var v = $("#oView");
+          if (v)
+            v.addEventListener("change", function () {
+              OPTS.view = v.value;
+              persistOpts();
+              syncViewSeg();
+              PANELS.classList.toggle("inline-view", OPTS.view === "inline");
+              rerender();
+            });
+          var th = $("#oTheme");
+          if (th)
+            th.addEventListener("change", function () {
+              OPTS.theme = th.value;
+              applyTheme();
+              persistOpts();
+            });
+        }
+
+        /* ---------- view segment sync ---------- */
+        function syncViewSeg() {
+          $$("#viewSeg button").forEach(function (b) {
+            b.classList.toggle(
+              "active",
+              b.getAttribute("data-view") === OPTS.view
+            );
+          });
+        }
+
+        /* ---------- drawers ---------- */
+        var SCRIM = $("#scrim");
+        function openDrawer(id) {
+          closeDrawers();
+          $("#" + id).classList.add("show");
+          SCRIM.classList.add("show");
+          if (id === "optionsDrawer") renderOptions();
+          if (id === "historyDrawer") renderHistory();
+        }
+        function closeDrawers() {
+          $$(".drawer").forEach(function (d) {
+            d.classList.remove("show");
+          });
+          SCRIM.classList.remove("show");
+        }
+        SCRIM.addEventListener("click", closeDrawers);
+        $$("[data-close]").forEach(function (b) {
+          b.addEventListener("click", closeDrawers);
+        });
+
+        /* ---------- toast ---------- */
+        var toastTimer = null;
+        function toast(msg) {
+          var t = $("#toast");
+          t.textContent = msg;
+          t.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () {
+            t.classList.remove("show");
+          }, 1800);
+        }
+
+        /* ---------- sample ---------- */
+        var SAMPLE_L = [
+          "The quick brown fox jumps over the lazy dog.",
+          "It was the best of times, it was the worst of times.",
+          "Line 3: unchanged content here.",
+          "Line 4: this line will be modified.",
+          "Line 5: keep me around.",
+          "Line 6: delete me please.",
+          "Line 7: also delete me.",
+          "Line 8: the end.",
+        ].join("\n");
+        var SAMPLE_R = [
+          "The quick brown fox leaps over the lazy dog.",
+          "It was the best of times, it was the age of wisdom.",
+          "Line 3: unchanged content here.",
+          "Line 4: this line has been modified.",
+          "Line 5: keep me around.",
+          "Line 7: also delete me.",
+          "Line 8: the end.",
+          "Line 9: a brand new line appears.",
+        ].join("\n");
+
+        /* ---------- wire events ---------- */
+        LEFT.addEventListener("input", scheduleRt);
+        RIGHT.addEventListener("input", scheduleRt);
+        LEFT.addEventListener("keydown", taKeys);
+        RIGHT.addEventListener("keydown", taKeys);
+        LEFT.addEventListener("scroll", syncScroll);
+        RIGHT.addEventListener("scroll", syncScroll);
+        function taKeys(e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = this.selectionStart,
+              en = this.selectionEnd;
+            this.value = this.value.slice(0, s) + "\t" + this.value.slice(en);
+            this.selectionStart = this.selectionEnd = s + 1;
+            scheduleRt();
+          }
+        }
+        $("#compareBtn").addEventListener("click", function () {
+          runCompare();
+          addHistory();
+          toast("Compared & saved to history");
+        });
+        $("#swapBtn").addEventListener("click", function () {
+          var a = LEFT.value;
+          LEFT.value = RIGHT.value;
+          RIGHT.value = a;
+          updateCounts();
+          runCompare();
+        });
+        $("#clearBtn").addEventListener("click", function () {
+          LEFT.value = "";
+          RIGHT.value = "";
+          updateCounts();
+          runCompare();
+          LEFT.focus();
+        });
+        $("#sampleBtn").addEventListener("click", function () {
+          LEFT.value = SAMPLE_L;
+          RIGHT.value = SAMPLE_R;
+          updateCounts();
+          runCompare();
+        });
+        $$("[data-clear]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            if (b.getAttribute("data-clear") === "left") LEFT.value = "";
+            else RIGHT.value = "";
+            updateCounts();
+            runCompare();
+          });
+        });
+        var rtToggle = $("#rtToggle");
+        rtToggle.addEventListener("click", function () {
+          OPTS.realtime = !OPTS.realtime;
+          rtToggle.classList.toggle("on", OPTS.realtime);
+          persistOpts();
+          if (OPTS.realtime) runCompare();
+        });
+        rtToggle.classList.toggle("on", OPTS.realtime);
+        $("#historyBtn").addEventListener("click", function () {
+          openDrawer("historyDrawer");
+        });
+        $("#optionsBtn").addEventListener("click", function () {
+          openDrawer("optionsDrawer");
+        });
+        $("#viewSeg").addEventListener("click", function (e) {
+          var b = e.target.closest("button");
+          if (!b) return;
+          OPTS.view = b.getAttribute("data-view");
+          persistOpts();
+          syncViewSeg();
+          PANELS.classList.toggle("inline-view", OPTS.view === "inline");
+          rerender();
+        });
+        syncViewSeg();
+
+        document.addEventListener("keydown", function (e) {
+          var mod = e.ctrlKey || e.metaKey;
+          if (mod && e.key === "Enter") {
+            e.preventDefault();
+            runCompare();
+            addHistory();
+            toast("Compared & saved to history");
+          } else if (e.altKey && !e.ctrlKey) {
+            var k = e.key.toLowerCase();
+            if (k === "s") {
+              e.preventDefault();
+              $("#swapBtn").click();
+            } else if (k === "r") {
+              e.preventDefault();
+              rtToggle.click();
+            } else if (k === "h") {
+              e.preventDefault();
+              openDrawer("historyDrawer");
+            } else if (k === "o") {
+              e.preventDefault();
+              openDrawer("optionsDrawer");
+            } else if (k === "n") {
+              e.preventDefault();
+              newTab();
+            }
+          }
+          if (e.key === "Escape") closeDrawers();
+        });
+
+        window.addEventListener("beforeunload", function () {
+          saveCurrentToTab();
+          persistTabs();
+        });
+
+        /* ---------- init ---------- */
+        loadTab(ACTIVE);
+        renderTabs();
+        PANELS.classList.toggle("inline-view", OPTS.view === "inline");
+        runCompare();
+      })();
+    </script>
+  </body>
+</html>
