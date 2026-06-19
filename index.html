@@ -452,7 +452,7 @@
         font-weight: 500;
       }
       .panel-head .mini {
-        margin-left: auto;
+        margin-left: 0;
         border: none;
         background: transparent;
         color: var(--faint);
@@ -464,6 +464,9 @@
       .panel-head .mini:hover {
         background: var(--panel2);
         color: var(--text);
+      }
+      .panel-head .count + .mini {
+        margin-left: auto;
       }
       .panel-body {
         flex: 1;
@@ -567,6 +570,51 @@
       }
       textarea::placeholder {
         color: var(--faint);
+      }
+      .file-input {
+        display: none;
+      }
+      .upload-empty {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 22px;
+        background: rgba(4, 4, 4, 0.18);
+      }
+      .panel.is-empty .upload-empty {
+        display: flex;
+      }
+      .upload-empty.drag {
+        background: rgba(0, 122, 204, 0.14);
+      }
+      .upload-card {
+        width: min(300px, 86%);
+        border: 1px dashed var(--border2);
+        border-radius: 8px;
+        padding: 18px;
+        background: var(--panel2);
+        color: var(--text);
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .upload-card svg {
+        width: 30px;
+        height: 30px;
+        fill: currentColor;
+        color: var(--accent2);
+      }
+      .upload-card strong {
+        font-size: 13px;
+      }
+      .upload-card span {
+        color: var(--faint);
+        font-size: 11.5px;
       }
       .panels.inline-view .panel.left .hl-layer,
       .panels.inline-view .panel.left textarea {
@@ -781,6 +829,15 @@
         padding: 6px 10px;
         font-size: 13px;
         cursor: pointer;
+      }
+      .opt input[type="number"] {
+        width: 96px;
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 13px;
       }
       .chk {
         position: relative;
@@ -1028,6 +1085,7 @@
         <div class="panel-head">
           <span class="tag"><i></i>Original</span
           ><span class="count" id="leftCount">0 lines</span
+          ><button class="mini" data-upload="left">upload</button
           ><button class="mini" data-clear="left">clear</button>
         </div>
         <div class="panel-body">
@@ -1038,12 +1096,23 @@
             placeholder="Paste original text here..."
           ></textarea>
           <div class="diff-view" id="leftDiff"></div>
+          <input class="file-input" id="leftFile" type="file" accept="text/*,.txt,.md,.json,.csv,.xml,.html,.css,.js,.jsx,.ts,.tsx,.log,.yaml,.yml" />
+          <div class="upload-empty" data-drop="left">
+            <button class="upload-card" type="button" data-upload="left">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3 7 8h3v6h4V8h3l-5-5zM5 18h14v2H5v-2z" />
+              </svg>
+              <strong>Upload Original</strong>
+              <span>Drop or choose a text file</span>
+            </button>
+          </div>
         </div>
       </section>
       <section class="panel right" id="panelRight">
         <div class="panel-head">
           <span class="tag"><i></i>Changed</span
           ><span class="count" id="rightCount">0 lines</span
+          ><button class="mini" data-upload="right">upload</button
           ><button class="mini" data-clear="right">clear</button>
         </div>
         <div class="panel-body">
@@ -1054,6 +1123,16 @@
             placeholder="Paste changed text here..."
           ></textarea>
           <div class="diff-view" id="rightDiff"></div>
+          <input class="file-input" id="rightFile" type="file" accept="text/*,.txt,.md,.json,.csv,.xml,.html,.css,.js,.jsx,.ts,.tsx,.log,.yaml,.yml" />
+          <div class="upload-empty" data-drop="right">
+            <button class="upload-card" type="button" data-upload="right">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3 7 8h3v6h4V8h3l-5-5zM5 18h14v2H5v-2z" />
+              </svg>
+              <strong>Upload Changed</strong>
+              <span>Drop or choose a text file</span>
+            </button>
+          </div>
         </div>
       </section>
     </main>
@@ -1089,6 +1168,8 @@
         };
         var LEFT = $("#leftInput"),
           RIGHT = $("#rightInput");
+        var PANELLEFT = $("#panelLeft"),
+          PANELRIGHT = $("#panelRight");
         var LEFTHL = $("#leftHl"),
           RIGHTHL = $("#rightHl");
         var LEFTDIFF = $("#leftDiff");
@@ -1145,13 +1226,20 @@
           intraLevel: "char",
           lineNumbers: true,
           scrollLock: false,
+          maxUploadKb: 100,
           wrap: false,
           theme: "dark",
         });
+        OPTS.maxUploadKb = clampUploadLimit(OPTS.maxUploadKb);
         if (!OPTS.defaultedCharDiff) {
           OPTS.intraLevel = "char";
           OPTS.defaultedCharDiff = true;
           persistOpts();
+        }
+        function clampUploadLimit(value) {
+          var n = parseInt(value, 10);
+          if (!Number.isFinite(n)) return 100;
+          return Math.min(1024, Math.max(1, n));
         }
         function persistOpts() {
           lsSet("opts", OPTS);
@@ -1623,6 +1711,47 @@
             " lines · " +
             r.length +
             " chars";
+          PANELLEFT.classList.toggle("is-empty", !l.length);
+          PANELRIGHT.classList.toggle("is-empty", !r.length);
+        }
+
+        /* ---------- file upload ---------- */
+        function uploadLimitBytes() {
+          return clampUploadLimit(OPTS.maxUploadKb) * 1024;
+        }
+        function sideEls(side) {
+          return side === "left"
+            ? { input: LEFT, file: $("#leftFile") }
+            : { input: RIGHT, file: $("#rightFile") };
+        }
+        function chooseFile(side) {
+          sideEls(side).file.click();
+        }
+        function importFile(side, file) {
+          if (!file) return;
+          var limit = uploadLimitBytes();
+          if (file.size > limit) {
+            toast(
+              "File is " +
+                Math.ceil(file.size / 1024) +
+                " KB; limit is " +
+                clampUploadLimit(OPTS.maxUploadKb) +
+                " KB"
+            );
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function () {
+            sideEls(side).input.value = String(reader.result || "");
+            updateCounts();
+            runCompare();
+            sideEls(side).input.focus();
+            toast("Loaded " + file.name);
+          };
+          reader.onerror = function () {
+            toast("Could not read " + file.name);
+          };
+          reader.readAsText(file);
         }
 
         /* ---------- tabs ---------- */
@@ -1886,6 +2015,12 @@
                 sel(OPTS.intraLevel, "char") +
                 ">Character level</option></select>"
             ) +
+            optRow(
+              "Upload limit",
+              '<input id="oUploadKb" type="number" min="1" max="1024" step="1" value="' +
+                clampUploadLimit(OPTS.maxUploadKb) +
+                '"> KB'
+            ) +
             "</div>" +
             '<div class="opt-group"><h3>Display</h3>' +
             optRow(
@@ -1960,6 +2095,13 @@
               OPTS.intraLevel = lvl.value;
               persistOpts();
               runCompare();
+            });
+          var uploadKb = $("#oUploadKb");
+          if (uploadKb)
+            uploadKb.addEventListener("change", function () {
+              OPTS.maxUploadKb = clampUploadLimit(uploadKb.value);
+              uploadKb.value = OPTS.maxUploadKb;
+              persistOpts();
             });
           var v = $("#oView");
           if (v)
@@ -2099,6 +2241,35 @@
             else RIGHT.value = "";
             updateCounts();
             runCompare();
+          });
+        });
+        $$("[data-upload]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            chooseFile(b.getAttribute("data-upload"));
+          });
+        });
+        $$(".file-input").forEach(function (input) {
+          input.addEventListener("change", function () {
+            var side = input.id === "leftFile" ? "left" : "right";
+            importFile(side, input.files && input.files[0]);
+            input.value = "";
+          });
+        });
+        $$("[data-drop]").forEach(function (zone) {
+          zone.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            zone.classList.add("drag");
+          });
+          zone.addEventListener("dragleave", function () {
+            zone.classList.remove("drag");
+          });
+          zone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            zone.classList.remove("drag");
+            importFile(
+              zone.getAttribute("data-drop"),
+              e.dataTransfer.files && e.dataTransfer.files[0]
+            );
           });
         });
         var rtToggle = $("#rtToggle");
