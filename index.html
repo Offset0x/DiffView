@@ -585,11 +585,12 @@
         justify-content: center;
         padding: 22px;
         background: rgba(4, 4, 4, 0.18);
+        pointer-events: none;
       }
       .panel.is-empty .upload-empty {
         display: flex;
       }
-      .upload-empty.drag {
+      .panel-body.drag .upload-empty {
         background: rgba(0, 122, 204, 0.14);
       }
       .upload-card {
@@ -604,6 +605,7 @@
         gap: 8px;
         cursor: pointer;
         box-shadow: var(--shadow);
+        pointer-events: auto;
       }
       .upload-card svg {
         width: 30px;
@@ -1124,7 +1126,7 @@
           ><button class="mini" data-upload="left">upload</button
           ><button class="mini" data-clear="left">clear</button>
         </div>
-        <div class="panel-body">
+        <div class="panel-body" data-drop="left">
           <div class="hl-layer" id="leftHl"></div>
           <textarea
             id="leftInput"
@@ -1133,7 +1135,7 @@
           ></textarea>
           <div class="diff-view" id="leftDiff"></div>
           <input class="file-input" id="leftFile" type="file" accept="text/*,.txt,.md,.json,.csv,.xml,.html,.css,.js,.jsx,.ts,.tsx,.log,.yaml,.yml" />
-          <div class="upload-empty" data-drop="left">
+          <div class="upload-empty">
             <button class="upload-card" type="button" data-upload="left">
               <svg viewBox="0 0 24 24">
                 <path d="M12 3 7 8h3v6h4V8h3l-5-5zM5 18h14v2H5v-2z" />
@@ -1151,7 +1153,7 @@
           ><button class="mini" data-upload="right">upload</button
           ><button class="mini" data-clear="right">clear</button>
         </div>
-        <div class="panel-body">
+        <div class="panel-body" data-drop="right">
           <div class="hl-layer" id="rightHl"></div>
           <textarea
             id="rightInput"
@@ -1160,7 +1162,7 @@
           ></textarea>
           <div class="diff-view" id="rightDiff"></div>
           <input class="file-input" id="rightFile" type="file" accept="text/*,.txt,.md,.json,.csv,.xml,.html,.css,.js,.jsx,.ts,.tsx,.log,.yaml,.yml" />
-          <div class="upload-empty" data-drop="right">
+          <div class="upload-empty">
             <button class="upload-card" type="button" data-upload="right">
               <svg viewBox="0 0 24 24">
                 <path d="M12 3 7 8h3v6h4V8h3l-5-5zM5 18h14v2H5v-2z" />
