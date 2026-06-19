@@ -5,11 +5,58 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --enable-logging"
+    "dev": "electron . --enable-logging",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis portable --x64",
+    "release": "electron-builder --win nsis portable --x64 --publish never"
   },
   "author": "Offset0x <https://github.com/Offset0x>",
   "license": "MIT",
+  "build": {
+    "appId": "com.offset0x.diffview",
+    "productName": "DiffView",
+    "copyright": "Copyright (c) 2026 Offset0x",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "assets/**"
+    ],
+    "win": {
+      "icon": "assets/diffview.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "DiffView-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "DiffView-Portable-${version}-${arch}.${ext}"
+    }
+  },
   "devDependencies": {
-    "electron": "^32.0.0"
+    "electron": "^32.0.0",
+    "electron-builder": "^25.1.8"
   }
 }
