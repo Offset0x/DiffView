@@ -1137,11 +1137,16 @@
           ignoreCase: false,
           ws: "none",
           intra: true,
-          intraLevel: "word",
+          intraLevel: "char",
           lineNumbers: true,
           wrap: false,
           theme: "dark",
         });
+        if (!OPTS.defaultedCharDiff) {
+          OPTS.intraLevel = "char";
+          OPTS.defaultedCharDiff = true;
+          persistOpts();
+        }
         function persistOpts() {
           lsSet("opts", OPTS);
         }
