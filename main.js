@@ -13,6 +13,7 @@ const iconPath = path.join(__dirname, 'assets', 'tray-icon.png');
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.DiffView.app');
 }
+app.setName('DiffView');
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {

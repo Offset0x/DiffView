@@ -1,13 +1,13 @@
 {
   "name": "diffview",
   "version": "0.1.0",
-  "description": "DiffChecker desktop app",
+  "description": "DiffView desktop diff app",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --enable-logging"
   },
-  "author": "",
+  "author": "Offset0x <https://github.com/Offset0x>",
   "license": "MIT",
   "devDependencies": {
     "electron": "^32.0.0"
